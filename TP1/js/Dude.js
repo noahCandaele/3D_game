@@ -15,7 +15,7 @@ export default class Dude {
 
     move(scene) {
         // follow the tank
-        let tank = scene.getMeshByName("heroTank");
+        let tank = scene.getMeshByName("voxel_duck");
         // let's compute the direction vector that goes from Dude to the tank
         let direction = tank.position.subtract(this.dudeMesh.position);
 

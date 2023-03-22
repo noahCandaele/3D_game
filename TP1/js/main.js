@@ -8,6 +8,7 @@ let inputStates = {};
 
 window.onload = startGame;
 
+let center_canard = false;
 function startGame() {
     canvas = document.querySelector("#myCanvas");
     engine = new BABYLON.Engine(canvas, true);
@@ -17,12 +18,24 @@ function startGame() {
     // out of the game window)
     modifySettings();
 
-    let tank = scene.getMeshByName("heroTank");
-
+    // let tank = scene.getMeshByName("heroTank");
+    
     engine.runRenderLoop(() => {
         let deltaTime = engine.getDeltaTime(); // remind you something ?
-
-        tank.move();
+        
+        // tank.move();
+        let canard = scene.getMeshByName("voxel_duck");
+        if(canard){
+            if(!center_canard){
+                let followCamera = createFollowCamera(scene, canard);
+                followCamera.rotationOffset = 0;
+                scene.activeCamera = followCamera;
+                center_canard = true;
+            }
+            canard.move();
+        }
+        // decrease the cooldown but not below 0
+        dashCooldown = Math.max(0, dashCooldown - deltaTime/1000);
 
         let heroDude = scene.getMeshByName("heroDude");
         if(heroDude)
@@ -35,19 +48,73 @@ function startGame() {
 function createScene() {
     let scene = new BABYLON.Scene(engine);
     let ground = createGround(scene);
-    let freeCamera = createFreeCamera(scene);
+    // let freeCamera = createFreeCamera(scene);
 
-    let tank = createTank(scene);
+    // let tank = createTank(scene);
 
     // second parameter is the target to follow
-    let followCamera = createFollowCamera(scene, tank);
-    scene.activeCamera = followCamera;
+    // let followCamera = createFollowCamera(scene, tank);
+    // scene.activeCamera = followCamera;
 
+    const camera = new BABYLON.UniversalCamera("UniversalCamera", new BABYLON.Vector3(0, 0, -10), scene);
+    camera.setTarget(BABYLON.Vector3.Zero());
+    camera.attachControl(canvas, true);
     createLights(scene);
 
     createHeroDude(scene);
- 
-   return scene;
+    loadMeshGLB("voxel_duck", scene, undefined, undefined, undefined, undefined, 1);
+
+    // loadMeshGLB(scene, "voxel_duck");
+
+
+    return scene;
+}
+
+function loadMeshGLB(name, scene, position_x=0, position_y=0, position_z=5, max_width=5, speed=2){
+    BABYLON.SceneLoader.ImportMeshAsync("", "models/", name+".glb", scene).then((result) => {
+        var listMesh = [];
+        for(let geo of result.geometries){
+            listMesh.push(scene.getNodeById(geo.id));
+        }
+        let modelGLB = BABYLON.Mesh.MergeMeshes(listMesh, true, true, undefined, false, true);
+
+        let bounds = modelGLB.getBoundingInfo();
+        var size_x = Math.abs(bounds.minimum.x - bounds.maximum.x);
+        var size_y = Math.abs(bounds.minimum.y - bounds.maximum.y);
+        var size_z = Math.abs(bounds.minimum.z - bounds.maximum.z);
+
+        var scale_adapt = Math.max(size_x, size_z);
+        var scale_factor = max_width/scale_adapt;
+        modelGLB.scaling = new BABYLON.Vector3(scale_factor, scale_factor, scale_factor);
+
+        modelGLB.position.x = position_x;
+        modelGLB.position.z = position_y;
+        modelGLB.position.y = position_z;
+        modelGLB.name = name;
+        modelGLB.speed = 1;
+        modelGLB.frontVector = new BABYLON.Vector3(0, 0, 1);
+        modelGLB.move = () => {
+            let yMovement = 0;
+            if(modelGLB.position.y > 2) {
+                zMovement = 0;
+                yMovement = -2;
+            }
+            if(inputStates.up) {
+                modelGLB.moveWithCollisions(modelGLB.frontVector.multiplyByFloats(-modelGLB.speed, -modelGLB.speed, -modelGLB.speed));
+            }
+            if(inputStates.down) {
+                modelGLB.moveWithCollisions(modelGLB.frontVector.multiplyByFloats(modelGLB.speed, modelGLB.speed, modelGLB.speed));
+            }
+            if(inputStates.left) {
+                modelGLB.rotation.y -= 0.04;
+                modelGLB.frontVector = new BABYLON.Vector3(Math.sin(modelGLB.rotation.y), 0, Math.cos(modelGLB.rotation.y));
+            }
+            if(inputStates.right) {
+                modelGLB.rotation.y += 0.04;
+                modelGLB.frontVector = new BABYLON.Vector3(Math.sin(modelGLB.rotation.y), 0, Math.cos(modelGLB.rotation.y));
+            }
+        };
+    });
 }
 
 function createGround(scene) {
@@ -107,6 +174,12 @@ function createFollowCamera(scene, target) {
 }
 
 let zMovement = 5;
+let dashFactor = 4;
+// make a cooldown for the dash
+let coolDownValue = 10;
+let dashDuration = 1;
+let dashCooldown = coolDownValue;
+
 function createTank(scene) {
     let tank = new BABYLON.MeshBuilder.CreateBox("heroTank", {height:1, depth:6, width:6}, scene);
     let tankMaterial = new BABYLON.StandardMaterial("tankMaterial", scene);
@@ -120,42 +193,41 @@ function createTank(scene) {
     tank.frontVector = new BABYLON.Vector3(0, 0, 1);
 
     tank.move = () => {
-                //tank.position.z += -1; // speed should be in unit/s, and depends on
-                                 // deltaTime !
-
-        // if we want to move while taking into account collision detections
-        // collision uses by default "ellipsoids"
-
         let yMovement = 0;
-       
+
         if (tank.position.y > 2) {
             zMovement = 0;
             yMovement = -2;
         } 
         //tank.moveWithCollisions(new BABYLON.Vector3(0, yMovement, zMovement));
 
-        if(inputStates.up) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
-            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(tank.speed, tank.speed, tank.speed));
-        }    
-        if(inputStates.down) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, -1*tank.speed));
-            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(-tank.speed, -tank.speed, -tank.speed));
-
-        }    
-        if(inputStates.left) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(-1*tank.speed, 0, 0));
-            tank.rotation.y -= 0.02;
-            tank.frontVector = new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
-        }    
-        if(inputStates.right) {
-            //tank.moveWithCollisions(new BABYLON.Vector3(1*tank.speed, 0, 0));
-            tank.rotation.y += 0.02;
-            tank.frontVector = new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
+        if(inputStates.dash) {
+            tank.moveWithCollisions(tank.frontVector.multiplyByFloats(dashFactor*tank.speed, dashFactor*tank.speed, dashFactor*tank.speed));
+            if((coolDownValue - dashCooldown)>dashDuration) {
+                inputStates.dash = false;
+            }
+        }else{
+            if(inputStates.up) {
+                //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, 1*tank.speed));
+                tank.moveWithCollisions(tank.frontVector.multiplyByFloats(tank.speed, tank.speed, tank.speed));
+            }    
+            if(inputStates.down) {
+                //tank.moveWithCollisions(new BABYLON.Vector3(0, 0, -1*tank.speed));
+                tank.moveWithCollisions(tank.frontVector.multiplyByFloats(-tank.speed, -tank.speed, -tank.speed));
+    
+            }    
+            if(inputStates.left) {
+                //tank.moveWithCollisions(new BABYLON.Vector3(-1*tank.speed, 0, 0));
+                tank.rotation.y -= 0.02;
+                tank.frontVector = new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
+            }    
+            if(inputStates.right) {
+                //tank.moveWithCollisions(new BABYLON.Vector3(1*tank.speed, 0, 0));
+                tank.rotation.y += 0.02;
+                tank.frontVector = new BABYLON.Vector3(Math.sin(tank.rotation.y), 0, Math.cos(tank.rotation.y));
+            }
         }
-
     }
-
     return tank;
 }
 
@@ -216,34 +288,34 @@ function modifySettings() {
     inputStates.up = false;
     inputStates.down = false;
     inputStates.space = false;
+    inputStates.dash = false;
     
     //add the listener to the main, window object, and update the states
     window.addEventListener('keydown', (event) => {
         if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
-           inputStates.left = true;
+            inputStates.left = true;
         } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
-           inputStates.up = true;
+            inputStates.up = true;
         } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
-           inputStates.right = true;
+            inputStates.right = true;
         } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
-           inputStates.down = true;
-        }  else if (event.key === " ") {
-           inputStates.space = true;
+            inputStates.down = true;
+        }  else if ((event.key === " ") && (dashCooldown == 0)) {
+            dashCooldown = coolDownValue;
+            inputStates.dash = true;
         }
     }, false);
 
     //if the key will be released, change the states object 
     window.addEventListener('keyup', (event) => {
         if ((event.key === "ArrowLeft") || (event.key === "q")|| (event.key === "Q")) {
-           inputStates.left = false;
+            inputStates.left = false;
         } else if ((event.key === "ArrowUp") || (event.key === "z")|| (event.key === "Z")){
-           inputStates.up = false;
+            inputStates.up = false;
         } else if ((event.key === "ArrowRight") || (event.key === "d")|| (event.key === "D")){
-           inputStates.right = false;
+            inputStates.right = false;
         } else if ((event.key === "ArrowDown")|| (event.key === "s")|| (event.key === "S")) {
-           inputStates.down = false;
-        }  else if (event.key === " ") {
-           inputStates.space = false;
+            inputStates.down = false;
         }
     }, false);
 }
