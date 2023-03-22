@@ -62,7 +62,8 @@ function createScene() {
     createLights(scene);
 
     createHeroDude(scene);
-    loadMeshGLB("voxel_duck", scene, undefined, undefined, undefined, undefined, 1);
+    loadMeshGLB("voxel_duck", scene, undefined, undefined, undefined, undefined, true, 1);
+    loadMeshGLB("house", scene, 50, 0, 0, 80, false, 0);
 
     // loadMeshGLB(scene, "voxel_duck");
 
@@ -70,7 +71,7 @@ function createScene() {
     return scene;
 }
 
-function loadMeshGLB(name, scene, position_x=0, position_y=0, position_z=5, max_width=5, speed=2){
+function loadMeshGLB(name, scene, position_x=0, position_y=0, position_z=5, max_width=5, moving=false, speed=2){
     BABYLON.SceneLoader.ImportMeshAsync("", "models/", name+".glb", scene).then((result) => {
         var listMesh = [];
         for(let geo of result.geometries){
@@ -93,38 +94,40 @@ function loadMeshGLB(name, scene, position_x=0, position_y=0, position_z=5, max_
         modelGLB.name = name;
         modelGLB.speed = 1;
         modelGLB.frontVector = new BABYLON.Vector3(0, 0, 1);
-        modelGLB.move = () => {
-            let yMovement = 0;
-            if(modelGLB.position.y > 2) {
-                zMovement = 0;
-                yMovement = -2;
-            }
-            if(inputStates.up) {
-                modelGLB.moveWithCollisions(modelGLB.frontVector.multiplyByFloats(-modelGLB.speed, -modelGLB.speed, -modelGLB.speed));
-            }
-            if(inputStates.down) {
-                modelGLB.moveWithCollisions(modelGLB.frontVector.multiplyByFloats(modelGLB.speed, modelGLB.speed, modelGLB.speed));
-            }
-            if(inputStates.left) {
-                modelGLB.rotation.y -= 0.04;
-                modelGLB.frontVector = new BABYLON.Vector3(Math.sin(modelGLB.rotation.y), 0, Math.cos(modelGLB.rotation.y));
-            }
-            if(inputStates.right) {
-                modelGLB.rotation.y += 0.04;
-                modelGLB.frontVector = new BABYLON.Vector3(Math.sin(modelGLB.rotation.y), 0, Math.cos(modelGLB.rotation.y));
-            }
-        };
+        if(moving){
+            modelGLB.move = () => {
+                let yMovement = 0;
+                if(modelGLB.position.y > 2) {
+                    zMovement = 0;
+                    yMovement = -2;
+                }
+                if(inputStates.up) {
+                    modelGLB.moveWithCollisions(modelGLB.frontVector.multiplyByFloats(-modelGLB.speed, -modelGLB.speed, -modelGLB.speed));
+                }
+                if(inputStates.down) {
+                    modelGLB.moveWithCollisions(modelGLB.frontVector.multiplyByFloats(modelGLB.speed, modelGLB.speed, modelGLB.speed));
+                }
+                if(inputStates.left) {
+                    modelGLB.rotation.y -= 0.04;
+                    modelGLB.frontVector = new BABYLON.Vector3(Math.sin(modelGLB.rotation.y), 0, Math.cos(modelGLB.rotation.y));
+                }
+                if(inputStates.right) {
+                    modelGLB.rotation.y += 0.04;
+                    modelGLB.frontVector = new BABYLON.Vector3(Math.sin(modelGLB.rotation.y), 0, Math.cos(modelGLB.rotation.y));
+                }
+            };
+        }
     });
 }
 
 function createGround(scene) {
-    const groundOptions = { width:2000, height:2000, subdivisions:20, minHeight:0, maxHeight:100, onReady: onGroundCreated};
+    const groundOptions = { width:500, height:500, subdivisions:20, minHeight:0, maxHeight:100, onReady: onGroundCreated};
     //scene is optional and defaults to the current scene
     const ground = BABYLON.MeshBuilder.CreateGroundFromHeightMap("gdhm", 'images/hmap1.png', groundOptions, scene); 
 
     function onGroundCreated() {
         const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
-        groundMaterial.diffuseTexture = new BABYLON.Texture("images/grass.jpg");
+        groundMaterial.diffuseTexture = new BABYLON.Texture("images/cracked_deepslate_bricks.png");
         ground.material = groundMaterial;
         // to be taken into account by collision detection
         ground.checkCollisions = true;
