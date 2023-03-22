@@ -15,9 +15,9 @@ export default class Dude {
 
     move(scene) {
         // follow the tank
-        let tank = scene.getMeshByName("voxel_duck");
+        let duck = scene.getMeshByName("voxel_duck");
         // let's compute the direction vector that goes from Dude to the tank
-        let direction = tank.position.subtract(this.dudeMesh.position);
+        let direction = duck.position.subtract(this.dudeMesh.position);
 
         // direction._x et direction._y déterminent la distance du tank par rapport au dude
         // peut être utile pour faire une simulation du dude qui voit notre tank au loin
